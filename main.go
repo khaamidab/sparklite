@@ -3,11 +3,19 @@ package main
 import (
 	"fiber-mongo-api/configs"
 	"fiber-mongo-api/routes"
+	"log"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
 	app := fiber.New()
 	//run database
 	configs.ConnectDB()
@@ -19,5 +27,10 @@ func main() {
 	//routes
 	routes.UserRoute(app)
 
-	app.Listen(":7001")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "7001"
+	}
+
+	app.Listen(":" + port)
 }

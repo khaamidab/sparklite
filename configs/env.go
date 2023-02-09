@@ -13,5 +13,10 @@ func EnvMongoURI() string {
 		log.Fatal("Error loading .env file")
 	}
 
-	return os.Getenv("MONGOURI")
+	uri := os.Getenv("MONGOURI")
+	if uri == "" {
+		uri = "mongodb://localhost:27017"
+	}
+
+	return uri
 }
