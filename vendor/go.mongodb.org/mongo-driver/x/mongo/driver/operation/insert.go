@@ -10,8 +10,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/event"
+	"go.mongodb.org/mongo-driver/internal/driverutil"
+	"go.mongodb.org/mongo-driver/internal/logger"
 	"go.mongodb.org/mongo-driver/mongo/description"
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
@@ -22,6 +26,7 @@ import (
 // Insert performs an insert operation.
 type Insert struct {
 	bypassDocumentValidation *bool
+	comment                  bsoncore.Value
 	documents                []bsoncore.Document
 	ordered                  *bool
 	session                  *session.Client
@@ -36,6 +41,8 @@ type Insert struct {
 	retry                    *driver.RetryMode
 	result                   InsertResult
 	serverAPI                *driver.ServerAPIOptions
+	timeout                  *time.Duration
+	logger                   *logger.Logger
 }
 
 // InsertResult represents an insert result returned by the server.
@@ -105,7 +112,10 @@ func (i *Insert) Execute(ctx context.Context) error {
 		Selector:          i.selector,
 		WriteConcern:      i.writeConcern,
 		ServerAPI:         i.serverAPI,
-	}.Execute(ctx, nil)
+		Timeout:           i.timeout,
+		Logger:            i.logger,
+		Name:              driverutil.InsertOp,
+	}.Execute(ctx)
 
 }
 
@@ -113,6 +123,9 @@ func (i *Insert) command(dst []byte, desc description.SelectedServer) ([]byte, e
 	dst = bsoncore.AppendStringElement(dst, "insert", i.collection)
 	if i.bypassDocumentValidation != nil && (desc.WireVersion != nil && desc.WireVersion.Includes(4)) {
 		dst = bsoncore.AppendBooleanElement(dst, "bypassDocumentValidation", *i.bypassDocumentValidation)
+	}
+	if i.comment.Type != bsontype.Type(0) {
+		dst = bsoncore.AppendValueElement(dst, "comment", i.comment)
 	}
 	if i.ordered != nil {
 		dst = bsoncore.AppendBooleanElement(dst, "ordered", *i.ordered)
@@ -128,6 +141,16 @@ func (i *Insert) BypassDocumentValidation(bypassDocumentValidation bool) *Insert
 	}
 
 	i.bypassDocumentValidation = &bypassDocumentValidation
+	return i
+}
+
+// Comment sets a value to help trace an operation.
+func (i *Insert) Comment(comment bsoncore.Value) *Insert {
+	if i == nil {
+		i = new(Insert)
+	}
+
+	i.comment = comment
 	return i
 }
 
@@ -261,5 +284,25 @@ func (i *Insert) ServerAPI(serverAPI *driver.ServerAPIOptions) *Insert {
 	}
 
 	i.serverAPI = serverAPI
+	return i
+}
+
+// Timeout sets the timeout for this operation.
+func (i *Insert) Timeout(timeout *time.Duration) *Insert {
+	if i == nil {
+		i = new(Insert)
+	}
+
+	i.timeout = timeout
+	return i
+}
+
+// Logger sets the logger for this operation.
+func (i *Insert) Logger(logger *logger.Logger) *Insert {
+	if i == nil {
+		i = new(Insert)
+	}
+
+	i.logger = logger
 	return i
 }

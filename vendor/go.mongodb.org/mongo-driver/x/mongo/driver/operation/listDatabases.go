@@ -10,9 +10,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/event"
+	"go.mongodb.org/mongo-driver/internal/driverutil"
 	"go.mongodb.org/mongo-driver/mongo/description"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
@@ -35,6 +37,7 @@ type ListDatabases struct {
 	selector            description.ServerSelector
 	crypt               driver.Crypt
 	serverAPI           *driver.ServerAPIOptions
+	timeout             *time.Duration
 
 	result ListDatabasesResult
 }
@@ -160,11 +163,13 @@ func (ld *ListDatabases) Execute(ctx context.Context) error {
 		Selector:       ld.selector,
 		Crypt:          ld.crypt,
 		ServerAPI:      ld.serverAPI,
-	}.Execute(ctx, nil)
+		Timeout:        ld.timeout,
+		Name:           driverutil.ListDatabasesOp,
+	}.Execute(ctx)
 
 }
 
-func (ld *ListDatabases) command(dst []byte, desc description.SelectedServer) ([]byte, error) {
+func (ld *ListDatabases) command(dst []byte, _ description.SelectedServer) ([]byte, error) {
 	dst = bsoncore.AppendInt32Element(dst, "listDatabases", 1)
 	if ld.filter != nil {
 
@@ -262,7 +267,7 @@ func (ld *ListDatabases) Deployment(deployment driver.Deployment) *ListDatabases
 	return ld
 }
 
-// ReadPreference set the read prefernce used with this operation.
+// ReadPreference set the read preference used with this operation.
 func (ld *ListDatabases) ReadPreference(readPreference *readpref.ReadPref) *ListDatabases {
 	if ld == nil {
 		ld = new(ListDatabases)
@@ -310,5 +315,15 @@ func (ld *ListDatabases) ServerAPI(serverAPI *driver.ServerAPIOptions) *ListData
 	}
 
 	ld.serverAPI = serverAPI
+	return ld
+}
+
+// Timeout sets the timeout for this operation.
+func (ld *ListDatabases) Timeout(timeout *time.Duration) *ListDatabases {
+	if ld == nil {
+		ld = new(ListDatabases)
+	}
+
+	ld.timeout = timeout
 	return ld
 }
